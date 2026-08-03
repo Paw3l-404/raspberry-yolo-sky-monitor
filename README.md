@@ -1,5 +1,6 @@
 # raspberry-yolo-sky-monitor
- Głównym celem projektu inżynierskiego jest stworzenie taniego, energooszczędnego i niezależnego stanowiska obserwacyjnego. System pozwala na bezobsługowe nagrywanie nocnego nieba oraz autonomiczną analizę materiału w celu identyfikacji przelotów meteorów oraz innych obiektów kosmicznych. 
+
+🎯 Głównym celem projektu inżynierskiego jest stworzenie taniego, energooszczędnego i niezależnego stanowiska obserwacyjnego. System pozwala na bezobsługowe nagrywanie nocnego nieba oraz autonomiczną analizę materiału w celu identyfikacji przelotów meteorów oraz innych obiektów kosmicznych. 
 
 📌 Krótki opis projektu
 System automatycznego monitorowania nocnego nieba oparty na komputerze jednopłytkowym Raspberry Pi oraz algorytmach sztucznej inteligencji. Projekt automatyzuje proces ciągłej rejestracji obrazu oraz detekcji zjawisk astronomicznych (ze szczególnym uwzględnieniem meteorów) przy wykorzystaniu architektury sieci neuronowych YOLO (You Only Look Once) oraz autorskiego zbioru danych wizyjnych.
