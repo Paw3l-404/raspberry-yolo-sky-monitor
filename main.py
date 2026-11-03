@@ -5,8 +5,6 @@ Uruchomienie (Windows / WSL / Linux):
     cd python-labeler
     python -m pip install -r requirements.txt
     python main.py
-
-Nie zawiera logiki ani layoutu — tylko skleja logic + gui.
 """
 
 from __future__ import annotations
