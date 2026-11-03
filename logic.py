@@ -5,8 +5,6 @@ Odpowiada za:
 - nawigację prev / current / next,
 - przechowywanie etykiet (boxy + status),
 - zapis / odczyt pliku etykiety JSON.
-
-GUI (gui.py) tylko wyświetla stan i wywołuje metody z tej klasy.
 """
 
 from __future__ import annotations
