@@ -22,8 +22,7 @@ CLASS_COLORS = {
     "satelita": "#34d399",
     "flara satelitarna": "#38bdf8",
     "samolot": "#fb7185",
-    "Cosmic ray": "#c084fc",
-    "Sensor artefact": "#a8a29e",
+    "niezidentyfikowane": "#c084fc",
 }
 
 
@@ -46,6 +45,8 @@ class LabelAppGui:
         self._drag_rect: int | None = None
         self._fit_cur: tuple[float, float, float, float] | None = None  # ox,oy,dw,dh
         self._zoom = 1.0  # dodatkowy zoom CURRENT (kółko myszy)
+        self._pan = [0.0, 0.0]  # przesunięcie obrazu (px) względem wyśrodkowania
+        self._pan_start: tuple[float, float, float, float] | None = None
         self._contrast = 1.35  # lekko podbite dla ciemnych stacków
         self._blink_peer = tk.StringVar(value="prev")  # prev|next
         self._blink_on = False
@@ -149,7 +150,8 @@ class LabelAppGui:
             left,
             text=(
                 "Duży obraz = CURRENT.\n"
-                "Kółko myszy = zoom.\n"
+                "Kółko myszy = zoom (do kursora).\n"
+                "Prawy/środkowy przycisk = przesuwanie.\n"
                 "Spacja = blink z sąsiadem.\n"
                 "Boxy tylko na CURRENT."
             ),
@@ -172,9 +174,14 @@ class LabelAppGui:
         self.canvas_cur.bind("<ButtonPress-1>", self.on_drag_start)
         self.canvas_cur.bind("<B1-Motion>", self.on_drag_move)
         self.canvas_cur.bind("<ButtonRelease-1>", self.on_drag_end)
+        # pan powiększonego obrazu: prawy lub środkowy przycisk myszy
+        for btn in ("2", "3"):
+            self.canvas_cur.bind(f"<ButtonPress-{btn}>", self.on_pan_start)
+            self.canvas_cur.bind(f"<B{btn}-Motion>", self.on_pan_move)
+            self.canvas_cur.bind(f"<ButtonRelease-{btn}>", self.on_pan_end)
         self.canvas_cur.bind("<MouseWheel>", self.on_mousewheel)  # Windows
-        self.canvas_cur.bind("<Button-4>", lambda e: self.on_mousewheel_linux(1))
-        self.canvas_cur.bind("<Button-5>", lambda e: self.on_mousewheel_linux(-1))
+        self.canvas_cur.bind("<Button-4>", lambda e: self.on_mousewheel_linux(1, e))
+        self.canvas_cur.bind("<Button-5>", lambda e: self.on_mousewheel_linux(-1, e))
         self.canvas_cur.bind("<Configure>", lambda _e: self.refresh_images())
 
         # prawa kolumna: PREV / NEXT
@@ -220,15 +227,55 @@ class LabelAppGui:
 
     # --- zoom / kontrast / blink --------------------------------------------
 
-    def _bump_zoom(self, factor: float) -> None:
-        self._zoom = min(max(self._zoom * factor, 1.0), 8.0)
+    def _bump_zoom(
+        self, factor: float, anchor: tuple[float, float] | None = None
+    ) -> None:
+        """Zmień zoom. anchor = punkt canvasu (px), który ma zostać pod kursorem."""
+        old = self._zoom
+        new = min(max(old * factor, 1.0), 8.0)
+        if new == old:
+            return
+        if anchor is not None and self._fit_cur is not None:
+            ox, oy, dw, dh = self._fit_cur
+            mx, my = anchor
+            ratio = new / old
+            cw = max(self.canvas_cur.winfo_width(), 40)
+            ch = max(self.canvas_cur.winfo_height(), 40)
+            # nowy lewy-górny róg tak, by punkt pod kursorem się nie ruszył
+            nox = mx - (mx - ox) * ratio
+            noy = my - (my - oy) * ratio
+            self._pan = [nox - (cw - dw * ratio) / 2, noy - (ch - dh * ratio) / 2]
+        self._zoom = new
+        if new == 1.0:
+            self._pan = [0.0, 0.0]
         self.refresh_images()
         self._update_status()
 
     def _reset_zoom(self) -> None:
-        self._zoom = 1.0
+        self._reset_view()
         self.refresh_images()
         self._update_status()
+
+    def _reset_view(self) -> None:
+        self._zoom = 1.0
+        self._pan = [0.0, 0.0]
+
+    def on_pan_start(self, event: tk.Event) -> None:
+        if self._zoom <= 1.0 or self._fit_cur is None:
+            return
+        self._pan_start = (event.x, event.y, self._pan[0], self._pan[1])
+        self.canvas_cur.configure(cursor="fleur")
+
+    def on_pan_move(self, event: tk.Event) -> None:
+        if self._pan_start is None:
+            return
+        sx, sy, px, py = self._pan_start
+        self._pan = [px + (event.x - sx), py + (event.y - sy)]
+        self.refresh_images()
+
+    def on_pan_end(self, _event: tk.Event) -> None:
+        self._pan_start = None
+        self.canvas_cur.configure(cursor="")
 
     def _on_contrast(self, _value: str) -> None:
         self._contrast = float(self.contrast_scale.get())
@@ -237,13 +284,15 @@ class LabelAppGui:
         self.refresh_side_thumbs()
 
     def on_mousewheel(self, event: tk.Event) -> None:
+        anchor = (event.x, event.y)
         if event.delta > 0:
-            self._bump_zoom(1.15)
+            self._bump_zoom(1.15, anchor)
         else:
-            self._bump_zoom(1 / 1.15)
+            self._bump_zoom(1 / 1.15, anchor)
 
-    def on_mousewheel_linux(self, direction: int) -> None:
-        self._bump_zoom(1.15 if direction > 0 else 1 / 1.15)
+    def on_mousewheel_linux(self, direction: int, event: tk.Event | None = None) -> None:
+        anchor = (event.x, event.y) if event is not None else None
+        self._bump_zoom(1.15 if direction > 0 else 1 / 1.15, anchor)
 
     def _blink_press(self, _event=None) -> str:
         self._blink_on = True
@@ -267,7 +316,7 @@ class LabelAppGui:
             return
         if n == 0:
             messagebox.showwarning("Pusto", "W folderze nie ma obrazów PNG/JPG.")
-        self._zoom = 1.0
+        self._reset_view()
         self.refresh()
 
     def on_save(self) -> None:
@@ -279,19 +328,10 @@ class LabelAppGui:
         if mode is None:
             return
 
-        default_name = (
-            "etykiety_triplet.json" if mode == "triplet" else "etykiety_single.json"
-        )
-        path = filedialog.asksaveasfilename(
-            title="Zapisz etykiety",
-            defaultextension=".json",
-            initialfile=default_name,
-            initialdir=str(self.logic.folder) if self.logic.folder else None,
-            filetypes=[("JSON", "*.json")],
-        )
-        if not path:
-            return
-        out = self.logic.save_labels(Path(path), mode=mode)
+        # Zawsze etykiety.json w folderze ze stackami — ten plik
+        # open_folder() wczytuje automatycznie przy kolejnym otwarciu.
+        folder = self.logic.folder or Path.cwd()
+        out = self.logic.save_labels(folder / "etykiety.json", mode=mode)
         messagebox.showinfo(
             "Zapisano",
             f"Tryb: {mode}\nEtykiety → {out}",
@@ -595,7 +635,7 @@ class LabelAppGui:
 
     def nav(self, delta: int) -> None:
         self.logic.go(delta)
-        self._zoom = 1.0
+        self._reset_view()
         self.refresh()
 
     def on_list_select(self, _event=None) -> None:
@@ -603,7 +643,7 @@ class LabelAppGui:
         if not sel:
             return
         self.logic.go_to(int(sel[0]))
-        self._zoom = 1.0
+        self._reset_view()
         self._reload_pils()
         self.refresh_images()
         self.refresh_side_thumbs()
@@ -616,12 +656,12 @@ class LabelAppGui:
     def on_empty(self) -> None:
         self.logic.mark_empty()
         self.logic.go(1)
-        self._zoom = 1.0
+        self._reset_view()
         self.refresh()
 
     def on_reviewed_next(self) -> None:
         self.logic.mark_reviewed_and_next()
-        self._zoom = 1.0
+        self._reset_view()
         self.refresh()
 
     def on_undo_box(self) -> None:
@@ -797,13 +837,36 @@ class LabelAppGui:
 
         base = min(cw / img.width, ch / img.height)
         scale = base * zoom
-        dw = max(int(img.width * scale), 1)
-        dh = max(int(img.height * scale), 1)
-        # przy zoom > 1: wyśrodkuj (prosty pan = środek)
-        ox = (cw - dw) // 2
-        oy = (ch - dh) // 2
-        photo = ImageTk.PhotoImage(img.resize((dw, dh), Image.Resampling.BILINEAR))
-        canvas.create_image(ox, oy, anchor=tk.NW, image=photo)
+        dw = max(img.width * scale, 1.0)
+        dh = max(img.height * scale, 1.0)
+
+        # pan: ograniczony tak, by obraz nie odjechał poza canvas
+        # (gdy obraz mniejszy od canvasu w danej osi — zawsze wyśrodkowany)
+        max_px = max((dw - cw) / 2, 0.0)
+        max_py = max((dh - ch) / 2, 0.0)
+        px = min(max(self._pan[0], -max_px), max_px)
+        py = min(max(self._pan[1], -max_py), max_py)
+        self._pan = [px, py]
+        ox = (cw - dw) / 2 + px
+        oy = (ch - dh) / 2 + py
+
+        # rysuj tylko widoczny fragment — przy dużym zoomie nie skalujemy
+        # całego obrazu, więc pan i zoom nie zacinają
+        vx0 = max(0.0, -ox)
+        vy0 = max(0.0, -oy)
+        vx1 = min(dw, cw - ox)
+        vy1 = min(dh, ch - oy)
+        if vx1 <= vx0 or vy1 <= vy0:
+            return None, (float(ox), float(oy), float(dw), float(dh))
+        cx0 = int(vx0 / scale)
+        cy0 = int(vy0 / scale)
+        cx1 = min(img.width, int(vx1 / scale) + 1)
+        cy1 = min(img.height, int(vy1 / scale) + 1)
+        crop = img.crop((cx0, cy0, cx1, cy1))
+        disp_w = max(int(round((cx1 - cx0) * scale)), 1)
+        disp_h = max(int(round((cy1 - cy0) * scale)), 1)
+        photo = ImageTk.PhotoImage(crop.resize((disp_w, disp_h), Image.Resampling.BILINEAR))
+        canvas.create_image(ox + cx0 * scale, oy + cy0 * scale, anchor=tk.NW, image=photo)
         canvas.image = photo  # type: ignore[attr-defined]
 
         if draw_boxes:

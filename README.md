@@ -40,7 +40,8 @@ python main.py
 1. **Otwórz folder** ze stackami (posortują się jak w eksploratorze).
 2. Na **środkowym** obrazie rysujesz prostokąt i wybierasz klasę (1–5).
 3. Sąsiadów używasz tylko do porównania (flara znika / meteor się przesuwa).
-4. **Zapisz etykiety** → `etykiety.json`.
+4. **Zapisz etykiety** (S) → zawsze `etykiety.json` w folderze ze stackami. Przy kolejnym **Otwórz folder** ten plik wczytuje się automatycznie.
+   - Kółko myszy = zoom do kursora, prawy/środkowy przycisk = przesuwanie powiększonego obrazu, `0` = reset.
 5. Później (osobny skrypt) do treningu 3-klatkowego: dla każdego oznaczonego pliku \(t\) dokładasz automatycznie \(t-1\) i \(t+1\).
 
 ## Skróty

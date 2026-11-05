@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# etykiety użytkownika (powstają w folderach ze stackami)
+etykiety*.json
+
+# lokalne podglądy / cache skanów
+_preview/
+
+# IDE / system
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store

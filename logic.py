@@ -24,8 +24,7 @@ LabelClass = Literal[
     "satelita",
     "flara satelitarna",
     "samolot",
-    "Cosmic ray",
-    "Sensor artefact",
+    "niezidentyfikowane",
 ]
 
 FrameStatus = Literal["unreviewed", "reviewed", "empty"]
@@ -39,8 +38,7 @@ CLASSES: list[tuple[LabelClass, str, str]] = [
     ("satelita", "Satelita", "2"),
     ("flara satelitarna", "Flara satelitarna", "3"),
     ("samolot", "Samolot", "4"),
-    ("Cosmic ray", "Cosmic ray", "5"),
-    ("Sensor artefact", "Sensor artefact", "6"),
+    ("niezidentyfikowane", "Niezidentyfikowane", "5"),
 ]
 
 
